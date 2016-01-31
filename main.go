@@ -26,6 +26,8 @@ func main() {
 		rest.Post("/countries", PostCountry),
 		rest.Get("/countries/:code", GetCountry),
 		rest.Delete("/countries/:code", DeleteCountry),
+		rest.Get("/rgba", GetRgba),
+		rest.Post("/rgba", PostRgba),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -39,20 +41,27 @@ type Country struct {
 	Name string
 }
 
-var store = map[string]*Country{}
+type Rgba struct {
+	R float32;
+	G float32;
+	B float32;
+	A float32;
+}
 
-var lock = sync.RWMutex{}
+var countryStore = map[string]*Country{}
+
+var countryLock = sync.RWMutex{}
 
 func GetCountry(w rest.ResponseWriter, r *rest.Request) {
 	code := r.PathParam("code")
 
-	lock.RLock()
+	countryLock.RLock()
 	var country *Country
-	if store[code] != nil {
+	if countryStore[code] != nil {
 		country = &Country{}
-		*country = *store[code]
+		*country = *countryStore[code]
 	}
-	lock.RUnlock()
+	countryLock.RUnlock()
 
 	if country == nil {
 		rest.NotFound(w, r)
@@ -62,14 +71,14 @@ func GetCountry(w rest.ResponseWriter, r *rest.Request) {
 }
 
 func GetAllCountries(w rest.ResponseWriter, r *rest.Request) {
-	lock.RLock()
-	countries := make([]Country, len(store))
+	countryLock.RLock()
+	countries := make([]Country, len(countryStore))
 	i := 0
-	for _, country := range store {
+	for _, country := range countryStore {
 		countries[i] = *country
 		i++
 	}
-	lock.RUnlock()
+	countryLock.RUnlock()
 	w.WriteJson(&countries)
 }
 
@@ -88,16 +97,40 @@ func PostCountry(w rest.ResponseWriter, r *rest.Request) {
 		rest.Error(w, "country name required", 400)
 		return
 	}
-	lock.Lock()
-	store[country.Code] = &country
-	lock.Unlock()
+	countryLock.Lock()
+	countryStore[country.Code] = &country
+	countryLock.Unlock()
 	w.WriteJson(&country)
 }
 
 func DeleteCountry(w rest.ResponseWriter, r *rest.Request) {
 	code := r.PathParam("code")
-	lock.Lock()
-	delete(store, code)
-	lock.Unlock()
+	countryLock.Lock()
+	delete(countryStore, code)
+	countryLock.Unlock()
 	w.WriteHeader(http.StatusOK)
+}
+
+var rgbaStore = map[int]*Rgba{}
+
+var rgbaLock = sync.RWMutex{}
+
+func GetRgba(w rest.ResponseWriter, r *rest.Request) {
+	rgbaLock.RLock()
+	rgba := rgbaStore[0]
+	rgbaLock.RUnlock()
+	w.WriteJson(&rgba)
+}
+
+func PostRgba(w rest.ResponseWriter, r *rest.Request) {
+	rgba := Rgba{}
+	err := r.DecodeJsonPayload(&rgba)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rgbaLock.Lock()
+	rgbaStore[0] = &rgba
+	rgbaLock.Unlock()
+	w.WriteJson(&rgba)
 }
