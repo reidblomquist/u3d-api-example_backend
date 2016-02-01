@@ -117,6 +117,10 @@ var rgbaLock = sync.RWMutex{}
 
 func GetRgba(w rest.ResponseWriter, r *rest.Request) {
 	rgbaLock.RLock()
+	if rgbaStore[0] == nil {
+		rgba := Rgba{}
+		rgbaStore[0] = &rgba
+	}
 	rgba := rgbaStore[0]
 	rgbaLock.RUnlock()
 	w.WriteJson(&rgba)
